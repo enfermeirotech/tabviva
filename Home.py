@@ -16,8 +16,8 @@ st.markdown("---")
 # --------------------------------------
 # CAMINHOS DOS ARQUIVOS
 # --------------------------------------
-CAMINHO_VIOLBR = r"C:\workspace\tabviva\dados\VIOLBR.csv"
-CAMINHO_MUNICIPIOS = r"C:\workspace\tabviva\dimensoes\municipios.xlsx"
+CAMINHO_VIOLBR = r"/dados/VIOLBR.csv"
+CAMINHO_MUNICIPIOS = r"/dimensoes/dim_regiao.csv"
 
 # --------------------------------------
 # CARREGAR DATAFRAMES
@@ -27,8 +27,8 @@ st.sidebar.title("Arquivos Carregados")
 # Arquivo VIOLBR
 try:
     df_violbr = pd.read_csv(CAMINHO_VIOLBR, sep=";", encoding="utf-8")
-except:
-    df_violbr = pd.read_csv(CAMINHO_VIOLBR)
+except Exception as e:
+    print("Erro:", e)
 
 # Criar coluna Ano com base nos 4 primeiros dígitos de DT_NOTIFIC
 df_violbr["ANO_NOTIFIC"] = df_violbr["DT_NOTIFIC"].astype(str).str.slice(0, 4)
