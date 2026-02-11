@@ -1,6 +1,6 @@
 import pandas as pd
 
-def csv_to_parquet(csv_path: str, parquet_path: str) -> None:
+def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
     """
     Parameters
     ----------
@@ -79,10 +79,25 @@ def csv_to_parquet(csv_path: str, parquet_path: str) -> None:
         "SEX_EXPLO": "Exploração sexual",
         "SEX_OUTRO": "Outro tipo de violência sexual",
     }
-
+    
+    COLUNAS_BOOLEANAS = [
+        'Física', 'Psicológica', 'Tortura', 'Sexual',
+        'Tráfico de seres humanos', 'Financeira', 'Negligência',
+        'Trabalho infantil', 'Intervenção legal', 'Outras violências',
+        'Assédio sexual', 'Estupro', 'Pornografia infantil',
+        'Exploração sexual', 'Outro tipo de violência sexual'
+    ]
+    
     df_violbr = df_violbr[COLUNAS_VIOLBR]
+        
+    # Converter a coluna de data para o formato datetime
+    df_violbr['DT_NOTIFIC'] = pd.to_datetime(df_violbr['DT_NOTIFIC'], format='%Y%m%d')
+    
+    # Extrair ano e mês da data de notificação
+    df_violbr['Ano'] = df_violbr['DT_NOTIFIC'].dt.year
+    df_violbr['Mês'] = df_violbr['DT_NOTIFIC'].dt.month
 
-
+    # Aplicar os mapeamentos
     df_violbr['CS_SEXO'] = df_violbr['CS_SEXO'].map(MAPA_SEXO)
     df_violbr['ORIENT_SEX'] = df_violbr['ORIENT_SEX'].map(MAPA_ORIENTACAO)
     df_violbr['IDENT_GEN'] = df_violbr['IDENT_GEN'].map(MAPA_IDENTIDADE)
@@ -91,6 +106,35 @@ def csv_to_parquet(csv_path: str, parquet_path: str) -> None:
     # Renomear as colunas
     df_violbr = df_violbr.rename(columns=MAPA_VIOLENCIAS)
     df_violbr = df_violbr.rename(columns=MAPA_VIOLENCIA_SEXUAL)
-
-
+    
+    # Converter as colunas de violência para booleanas
+    df_violbr[COLUNAS_BOOLEANAS] = df_violbr[COLUNAS_BOOLEANAS] == 1
+    
     df_violbr.to_parquet(parquet_path, index=False)
+
+
+
+def regiao_to_parquet(csv_path: str, parquet_path: str) -> None:
+    """
+    Parameters
+    ----------
+    csv_path : str
+        _description_
+    parquet_path : str
+        _description_
+    """
+    
+    df_municipios = pd.read_csv(csv_path, sep=';', encoding='latin-1')
+    
+    COLUNAS_MUNICIPIOS = [
+    "mun_cod", "mun_nome", 
+    "uf_sigla", "uf_nome", 
+    "macro_reg_saude_abrv", "macro_reg_saude_nome",
+    "reg_saude_nome", "reg_integracao_nome",
+    "dsei", "dsei_nome",
+    "mun_mapa"
+    ]
+    
+    df_municipios = df_municipios[COLUNAS_MUNICIPIOS]
+    
+    df_municipios.to_parquet(parquet_path, index=False)
