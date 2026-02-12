@@ -133,7 +133,7 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
     df_violbr['CS_RACA'] = df_violbr['CS_RACA'].map(MAPA_RACA)
 
     # Converter a coluna de idade para faixas etárias
-    df_violbr["NU_IDADE_N"] = df_violbr["NU_IDADE_N"].apply(converter_idade)
+    df_violbr["Faixa etária"] = df_violbr["NU_IDADE_N"].apply(converter_idade)
 
 
     # Renomear as colunas
