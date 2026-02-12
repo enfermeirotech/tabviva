@@ -10,7 +10,7 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
         _description_
     """
     
-    df_violbr = pd.read_csv(csv_path)
+    df_violbr = pd.read_csv(csv_path, low_memory=False)
 
     COLUNAS_VIOLBR = [
         # Identificação e data
@@ -88,8 +88,37 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
         'Exploração sexual', 'Outro tipo de violência sexual'
     ]
     
-    df_violbr = df_violbr[COLUNAS_VIOLBR]
+    FAIXAS_ETARIAS = {
+        (0, 999): "IGNORADO",
+        (1000, 3999): "00 a < 01 ano",
+        (4000, 4004): "01 a 04 anos",
+        (4005, 4009): "05 a 09 anos",
+        (4010, 4014): "10 a 14 anos",
+        (4015, 4019): "15 a 19 anos",
+        (4020, 4029): "20 a 29 anos",
+        (4030, 4039): "30 a 39 anos",
+        (4040, 4049): "40 a 49 anos",
+        (4050, 4059): "50 a 59 anos",
+        (4060, 4069): "60 a 69 anos",
+        (4070, 4079): "70 a 79 anos",
+        (4080, 4999): "Mais de 80 anos",
+    }
+    
+    def converter_idade(idade: float) -> str:
+        """
+            Converte código de idade do 
+            SINAN para faixa etária legível.
+        """
+        if pd.isna(idade):
+            return "IGNORADO"
+        idade = int(idade)
+        for (inicio, fim), faixa in FAIXAS_ETARIAS.items():
+            if inicio <= idade <= fim:
+                return faixa
+        return "IGNORADO"
         
+    df_violbr = df_violbr[COLUNAS_VIOLBR]
+    
     # Converter a coluna de data para o formato datetime
     df_violbr['DT_NOTIFIC'] = pd.to_datetime(df_violbr['DT_NOTIFIC'], format='%Y%m%d')
     
@@ -102,6 +131,10 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
     df_violbr['ORIENT_SEX'] = df_violbr['ORIENT_SEX'].map(MAPA_ORIENTACAO)
     df_violbr['IDENT_GEN'] = df_violbr['IDENT_GEN'].map(MAPA_IDENTIDADE)
     df_violbr['CS_RACA'] = df_violbr['CS_RACA'].map(MAPA_RACA)
+
+    # Converter a coluna de idade para faixas etárias
+    df_violbr["NU_IDADE_N"] = df_violbr["NU_IDADE_N"].apply(converter_idade)
+
 
     # Renomear as colunas
     df_violbr = df_violbr.rename(columns=MAPA_VIOLENCIAS)
