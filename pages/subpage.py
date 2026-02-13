@@ -33,7 +33,6 @@ df_municipios = pd.read_parquet(CAMINHO_MUNICIPIOS)
 # --------------------------------------
 # SIDEBAR
 # --------------------------------------
-
 # ------------Opções de filtro para a sidebar----------------
 SEXOS = ["Feminino", "Masculino", "Ignorado", "Em branco"]
 
