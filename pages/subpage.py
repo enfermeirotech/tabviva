@@ -34,6 +34,8 @@ df_municipios = pd.read_parquet(CAMINHO_MUNICIPIOS)
 # SIDEBAR
 # --------------------------------------
 # ------------Opções de filtro para a sidebar----------------
+TEMPO = [df_violbr["Ano"].min(), df_violbr["Ano"].max()]
+
 SEXOS = ["Feminino", "Masculino", "Ignorado", "Em branco"]
 
 ORIENTACAO = ["Heterossexual", "Homossexual (Gay/Lésbica)", "Bissexual", "Não se aplica", "Ignorado"]
@@ -51,6 +53,13 @@ FAIXA = [
 # ------------Seleção dos filtros na sidebar----------------
 with st.sidebar:
     with st.form("Filtros"):
+        filtro_tempo = st.slider(
+            "Selecione o intervalo de anos",
+            min_value=TEMPO[0],
+            max_value=TEMPO[1],
+            value=(TEMPO[0], TEMPO[1])
+        )
+
         filtro_sexo = st.multiselect(
             "Sexo",
             options=SEXOS
@@ -79,6 +88,7 @@ with st.sidebar:
         submitted = st.form_submit_button("Submit")
 
     if submitted:
+        st.write("Intervalo de anos:", filtro_tempo)
         st.write("Sexo:", filtro_sexo)
         st.write("Orientação Sexual:", filtro_orientacao)
         st.write("Identidade de Gênero:", filtro_identidade)
@@ -96,6 +106,7 @@ def aplicar_filtros(df, filtro, coluna):
 if submitted:
     df_filtrado = df_violbr
 
+    df_filtrado = df_filtrado[(df_filtrado["Ano"] >= filtro_tempo[0]) & (df_filtrado["Ano"] <= filtro_tempo[1])]
     df_filtrado = aplicar_filtros(df_filtrado, filtro_sexo, "CS_SEXO")
     df_filtrado = aplicar_filtros(df_filtrado, filtro_orientacao, "ORIENT_SEX")
     df_filtrado = aplicar_filtros(df_filtrado, filtro_identidade, "IDENT_GEN")
