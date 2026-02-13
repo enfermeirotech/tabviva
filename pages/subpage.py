@@ -84,3 +84,22 @@ with st.sidebar:
         st.write("Identidade de Gênero:", filtro_identidade)
         st.write("Raça/Cor:", filtro_raca)
         st.write("Faixa Etária:", filtro_faixa)
+
+# ------------------------------
+# APLICAÇÃO DOS FILTROS E EXIBIÇÃO DOS DADOS
+# ------------------------------
+def aplicar_filtros(df, filtro, coluna):
+    if filtro:
+        return df[df[coluna].isin(filtro)]
+    return df
+
+if submitted:
+    df_filtrado = df_violbr
+
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_sexo, "CS_SEXO")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_orientacao, "ORIENT_SEX")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_identidade, "IDENT_GEN")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_raca, "CS_RACA")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_faixa, "Faixa etária")
+
+    st.dataframe(df_filtrado)
