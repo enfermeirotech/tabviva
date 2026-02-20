@@ -21,13 +21,29 @@ CAMINHO_MUNICIPIOS = r"dimensoes/dim_regiao.parquet"
 df_violbr = pd.read_parquet(CAMINHO_VIOLBR)
 df_municipios = pd.read_parquet(CAMINHO_MUNICIPIOS)
 
-# Index(['DT_NOTIFIC', 'ID_MUNICIP', 'NU_IDADE_N', 'CS_SEXO', 'CS_RACA',
-#        'ORIENT_SEX', 'IDENT_GEN', 'Física', 'Psicológica', 'Tortura', 'Sexual',
+# --------------------------------------
+# MERGE DOS DATAFRAMES
+# --------------------------------------
+df = df_violbr.merge(
+    df_municipios,
+    left_on="ID_MUNICIP",
+    right_on="mun_cod",
+    how="left"
+)
+
+df = df.drop(columns=["ID_MUNICIP", "mun_cod"])
+
+# --------------------------------------
+# COLUNAS DISPONÍVEIS
+# --------------------------------------
+# Index(['DT_NOTIFIC', 'NU_IDADE_N', 'CS_SEXO', 'CS_RACA', 'ORIENT_SEX',
+#        'IDENT_GEN', 'Física', 'Psicológica', 'Tortura', 'Sexual',
 #        'Tráfico de seres humanos', 'Financeira', 'Negligência',
 #        'Trabalho infantil', 'Intervenção legal', 'Outras violências',
 #        'Assédio sexual', 'Estupro', 'Pornografia infantil',
 #        'Exploração sexual', 'Outro tipo de violência sexual', 'Ano', 'Mês',
-#        'Faixa etária'],
+#        'Faixa etária', 'mun_nome', 'uf_sigla', 'uf_nome',
+#        'macro_reg_saude_abrv', 'macro_reg_saude_nome', 'reg_integracao_nome'],
 #       dtype='object')
 
 # --------------------------------------
@@ -104,7 +120,7 @@ def aplicar_filtros(df, filtro, coluna):
     return df
 
 if submitted:
-    df_filtrado = df_violbr
+    df_filtrado = df
 
     df_filtrado = df_filtrado[(df_filtrado["Ano"] >= filtro_tempo[0]) & (df_filtrado["Ano"] <= filtro_tempo[1])]
     df_filtrado = aplicar_filtros(df_filtrado, filtro_sexo, "CS_SEXO")

@@ -164,8 +164,8 @@ def regiao_to_parquet(csv_path: str, parquet_path: str) -> None:
     "uf_sigla", "uf_nome", 
     "macro_reg_saude_abrv", "macro_reg_saude_nome",
     "reg_saude_nome", "reg_integracao_nome",
-    "dsei", "dsei_nome",
-    "mun_mapa"
+    # "dsei", "dsei_nome",
+    # "mun_mapa"
     ]
     
     df_municipios = df_municipios[COLUNAS_MUNICIPIOS]
