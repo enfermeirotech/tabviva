@@ -50,7 +50,7 @@ df = df.drop(columns=["ID_MUNICIP", "mun_cod"])
 # SIDEBAR
 # --------------------------------------
 # ------------Opções de filtro para a sidebar----------------
-TEMPO = [df_violbr["Ano"].min(), df_violbr["Ano"].max()]
+TEMPO = [df["Ano"].min(), df["Ano"].max()]
 
 SEXOS = ["Feminino", "Masculino", "Ignorado", "Em branco"]
 
@@ -101,9 +101,9 @@ with st.sidebar:
             options=FAIXA
         )
 
-        submitted = st.form_submit_button("Submit")
+        submitted_sidebar = st.form_submit_button("Submit")
 
-    if submitted:
+    if submitted_sidebar:
         st.write("Intervalo de anos:", filtro_tempo)
         st.write("Sexo:", filtro_sexo)
         st.write("Orientação Sexual:", filtro_orientacao)
@@ -111,15 +111,45 @@ with st.sidebar:
         st.write("Raça/Cor:", filtro_raca)
         st.write("Faixa Etária:", filtro_faixa)
 
-# ------------------------------
+
+# -----------------------
+# DIVISÃO POR LOCALIDADE
+# -----------------------
+col1, col2, col3, col4 = st.columns(4)
+
+with st.form("Localidade"):
+    with col1:
+        filtro_minicipio = st.multiselect(
+            "Município",
+            options=df["mun_nome"].unique()
+        )
+    with col2:
+        filtro_uf = st.multiselect(
+            "UF",
+            options=df["uf_sigla"].unique()
+        )
+    with col3:
+        filtro_macro = st.multiselect(
+            "Macro Região de Saúde",
+            options=df["macro_reg_saude_nome"].unique()
+        )
+    with col4:
+        filtro_regiao = st.multiselect(
+            "Região de Integração",
+            options=df["reg_integracao_nome"].unique()
+        )
+    submitted_localidade = st.form_submit_button("Submit")
+
+
+# ------------------------------------------
 # APLICAÇÃO DOS FILTROS E EXIBIÇÃO DOS DADOS
-# ------------------------------
+# ------------------------------------------
 def aplicar_filtros(df, filtro, coluna):
     if filtro:
         return df[df[coluna].isin(filtro)]
     return df
 
-if submitted:
+if submitted_sidebar:
     df_filtrado = df
 
     df_filtrado = df_filtrado[(df_filtrado["Ano"] >= filtro_tempo[0]) & (df_filtrado["Ano"] <= filtro_tempo[1])]
