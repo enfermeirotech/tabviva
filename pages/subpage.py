@@ -178,7 +178,7 @@ with col_m4:
     st.metric("Anos no Filtro", anos_unicos, border=True)
 
 # Exibir o dataframe
-st.dataframe(df_filtrado, use_container_width=True, height=400)
+st.dataframe(df_filtrado, height=500)
 
 # Botão para limpar filtros
 if st.button("Limpar Todos os Filtros"):
