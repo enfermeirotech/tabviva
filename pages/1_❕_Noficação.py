@@ -282,3 +282,122 @@ if len(df_filtrado) > 0:
 
 else:
     st.info("Nenhum dado disponível para os filtros selecionados.")
+
+
+# --------------------------------------
+# GRÁFICO 2: Pirâmide etária por sexo
+# --------------------------------------
+st.markdown("---")
+st.subheader("Pirâmide etária por sexo")
+
+if len(df_filtrado) > 0:
+
+    ORDEM_FAIXAS = [
+        "00 a < 01 ano", "01 a 04 anos", "05 a 09 anos", "10 a 14 anos",
+        "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos",
+        "50 a 59 anos", "60 a 69 anos", "70 a 79 anos", "Mais de 80 anos"
+    ]
+
+    # Filtrar apenas Feminino e Masculino
+    df_piramide = (
+        df_filtrado[df_filtrado["CS_SEXO"].isin(["Feminino", "Masculino"])]
+        .groupby(["FAIXA_ETARIA", "CS_SEXO"])
+        .size()
+        .reset_index(name="Contagem")
+    )
+
+    # Garantir ordem correta das faixas
+    df_piramide["FAIXA_ETARIA"] = pd.Categorical(
+        df_piramide["FAIXA_ETARIA"],
+        categories=ORDEM_FAIXAS,
+        ordered=True
+    )
+    df_piramide = df_piramide.sort_values("FAIXA_ETARIA")
+
+    # Masculino vai para o lado negativo (esquerda)
+    df_piramide.loc[df_piramide["CS_SEXO"] == "Masculino", "Contagem"] *= -1
+
+    visualizacao_piramide = st.radio(
+        "Visualização pirâmide",
+        options=["Gráfico", "Tabela"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if visualizacao_piramide == "Gráfico":
+        fig_piramide = px.bar(
+            df_piramide,
+            x="Contagem",
+            y="FAIXA_ETARIA",
+            color="CS_SEXO",
+            orientation="h",
+            color_discrete_map={
+                "Feminino": "#D4537E",
+                "Masculino": "#378ADD"
+            },
+            template="plotly_white",
+            labels={"FAIXA_ETARIA": "", "Contagem": "Notificações", "CS_SEXO": "Sexo"}
+        )
+
+        # Formatar eixo X para mostrar valores absolutos no hover e no eixo
+        max_val = df_piramide["Contagem"].abs().max()
+        tick_step = max(1, round(max_val / 5, -2))  # ~5 ticks no eixo
+
+        fig_piramide.update_layout(
+            xaxis=dict(
+                tickvals=[-4*tick_step, -3*tick_step, -2*tick_step, -tick_step, 0, tick_step, 2*tick_step, 3*tick_step, 4*tick_step],
+                ticktext=[f"{4*tick_step:,.0f}", f"{3*tick_step:,.0f}", f"{2*tick_step:,.0f}", f"{tick_step:,.0f}", "0", f"{tick_step:,.0f}", f"{2*tick_step:,.0f}", f"{3*tick_step:,.0f}", f"{4*tick_step:,.0f}"],
+                title="Notificações"
+            ),
+            barmode="relative",
+            bargap=0.1,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+            margin=dict(t=60, b=40, l=120, r=20),
+            hovermode="y unified"
+        )
+
+        # Hover mostra valor absoluto
+        fig_piramide.update_traces(
+            hovertemplate="%{customdata[0]}: %{x:,.0f}<extra></extra>",
+            customdata=df_piramide[["CS_SEXO"]].values
+        )
+        fig_piramide.for_each_trace(
+            lambda t: t.update(
+                hovertemplate=f"{t.name}: %{{x:,.0f}}<extra></extra>"
+                if t.name == "Feminino"
+                else f"{t.name}: %{{x:,.0f}}<extra></extra>"
+            )
+        )
+
+        # Corrigir hover do Masculino (valores negativos → mostrar positivo)
+        for trace in fig_piramide.data:
+            if trace.name == "Masculino":
+                trace.customdata = abs(df_piramide[df_piramide["CS_SEXO"] == "Masculino"]["Contagem"].values).reshape(-1, 1)
+                trace.hovertemplate = "Masculino: %{customdata[0]:,.0f}<extra></extra>"
+
+        st.plotly_chart(fig_piramide, use_container_width=True)
+
+    else:
+        # Tabela com valores absolutos lado a lado
+        df_tab_piramide = (
+            df_filtrado[df_filtrado["CS_SEXO"].isin(["Feminino", "Masculino"])]
+            .groupby(["FAIXA_ETARIA", "CS_SEXO"])
+            .size()
+            .unstack(fill_value=0)
+            .reindex(ORDEM_FAIXAS)
+            .reset_index()
+        )
+        df_tab_piramide.columns.name = None
+
+        # Adicionar total e proporção
+        df_tab_piramide["Total"] = df_tab_piramide.get("Feminino", 0) + df_tab_piramide.get("Masculino", 0)
+        if "Feminino" in df_tab_piramide.columns:
+            df_tab_piramide["% Feminino"] = (df_tab_piramide["Feminino"] / df_tab_piramide["Total"] * 100).map(lambda x: f"{x:.1f}%")
+        if "Masculino" in df_tab_piramide.columns:
+            df_tab_piramide["% Masculino"] = (df_tab_piramide["Masculino"] / df_tab_piramide["Total"] * 100).map(lambda x: f"{x:.1f}%")
+
+        df_tab_piramide = df_tab_piramide.rename(columns={"FAIXA_ETARIA": "Faixa Etária"})
+        st.dataframe(df_tab_piramide, hide_index=True, use_container_width=True)
+
+else:
+    st.info("Nenhum dado disponível para os filtros selecionados.")
