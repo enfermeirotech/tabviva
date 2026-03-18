@@ -37,14 +37,30 @@ df = df.drop(columns=["ID_MUNICIP", "mun_cod"])
 # OPÇÕES DE FILTRO
 # --------------------------------------
 TEMPO = [df["Ano"].min(), df["Ano"].max()]
+
 SEXOS = ["Feminino", "Masculino", "Ignorado", "Em branco"]
+
 ORIENTACAO = ["Heterossexual", "Homossexual (Gay/Lésbica)", "Bissexual", "Não se aplica", "Ignorado"]
+
 IDENTIDADE = ["Travesti", "Transexual Mulher", "Transexual Homem", "Não se aplica", "Ignorado"]
+
 RACA = ["Branca", "Preta", "Amarela", "Parda", "Indígena", "Ignorado", "Em branco"]
+
 FAIXA = [
     "IGNORADO", "00 a < 01 ano", "01 a 04 anos", "05 a 09 anos", "10 a 14 anos",
     "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos",
     "50 a 59 anos", "60 a 69 anos", "70 a 79 anos", "Mais de 80 anos"
+]
+
+TIPOS_VIOLENCIA = [
+    "Física", "Psicológica", "Tortura", "Sexual",
+    "Tráfico de seres humanos", "Financeira", "Negligência",
+    "Trabalho infantil", "Intervenção legal", "Outras violências"
+]
+
+TIPOS_VIOLENCIA_SEXUAL = [
+    "Assédio sexual", "Estupro", "Pornografia infantil",
+    "Exploração sexual", "Outro tipo de violência sexual"
 ]
 
 # --------------------------------------
@@ -53,6 +69,12 @@ FAIXA = [
 def aplicar_filtros(df, filtro, coluna):
     if filtro:
         return df[df[coluna].isin(filtro)]
+    return df
+
+def aplicar_filtro_booleano(df, filtro_cols):
+    if filtro_cols:
+        mask = df[filtro_cols].any(axis=1)
+        return df[mask]
     return df
 
 # --------------------------------------
@@ -93,6 +115,21 @@ with st.sidebar:
             options=FAIXA
         )
 
+        st.divider()
+        st.subheader("Tipo de Violência")
+
+        filtro_tipo_violencia = st.multiselect(
+            "Tipo de Violência",
+            options=TIPOS_VIOLENCIA,
+            help="Filtra registros com pelo menos um dos tipos selecionados marcado como verdadeiro."
+        )
+
+        filtro_tipo_violencia_sexual = st.multiselect(
+            "Tipo de Violência Sexual",
+            options=TIPOS_VIOLENCIA_SEXUAL,
+            help="Filtra registros com pelo menos um dos subtipos sexuais selecionados marcado como verdadeiro."
+        )
+
         submitted_sidebar = st.form_submit_button("Aplicar Filtros")
 
 # -----------------------
@@ -100,7 +137,6 @@ with st.sidebar:
 # -----------------------
 st.header("Filtros de Localidade")
 
-# Usar session_state para armazenar os filtros de localidade
 if 'filtros_localidade_aplicados' not in st.session_state:
     st.session_state.filtros_localidade_aplicados = False
 
@@ -147,7 +183,11 @@ if submitted_sidebar or st.session_state.get('filtros_demograficos_aplicados', F
     df_filtrado = aplicar_filtros(df_filtrado, filtro_orientacao, "ORIENT_SEX")
     df_filtrado = aplicar_filtros(df_filtrado, filtro_identidade, "IDENT_GEN")
     df_filtrado = aplicar_filtros(df_filtrado, filtro_raca, "CS_RACA")
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_faixa, "Faixa etária")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_faixa, "FAIXA_ETARIA")
+
+    # Filtros booleanos de violência
+    df_filtrado = aplicar_filtro_booleano(df_filtrado, filtro_tipo_violencia)
+    df_filtrado = aplicar_filtro_booleano(df_filtrado, filtro_tipo_violencia_sexual)
 
 # Aplicar filtros de localidade
 if submitted_localidade or st.session_state.get('filtros_localidade_aplicados', False):
