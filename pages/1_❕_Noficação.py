@@ -292,12 +292,6 @@ st.subheader("Pirâmide etária por sexo")
 
 if len(df_filtrado) > 0:
 
-    ORDEM_FAIXAS = [
-        "00 a < 01 ano", "01 a 04 anos", "05 a 09 anos", "10 a 14 anos",
-        "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos",
-        "50 a 59 anos", "60 a 69 anos", "70 a 79 anos", "Mais de 80 anos"
-    ]
-
     # Filtrar apenas Feminino e Masculino
     df_piramide = (
         df_filtrado[df_filtrado["CS_SEXO"].isin(["Feminino", "Masculino"])]
@@ -309,7 +303,7 @@ if len(df_filtrado) > 0:
     # Garantir ordem correta das faixas
     df_piramide["FAIXA_ETARIA"] = pd.Categorical(
         df_piramide["FAIXA_ETARIA"],
-        categories=ORDEM_FAIXAS,
+        categories=FAIXA,
         ordered=True
     )
     df_piramide = df_piramide.sort_values("FAIXA_ETARIA")
@@ -384,7 +378,7 @@ if len(df_filtrado) > 0:
             .groupby(["FAIXA_ETARIA", "CS_SEXO"])
             .size()
             .unstack(fill_value=0)
-            .reindex(ORDEM_FAIXAS)
+            .reindex(FAIXA)
             .reset_index()
         )
         df_tab_piramide.columns.name = None
