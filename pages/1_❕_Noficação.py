@@ -398,3 +398,132 @@ with col2:
 
     else:
         st.info("Nenhum dado disponível para os filtros selecionados.")
+
+
+# --------------------------------------
+# GRÁFICO 3: Heatmap de coocorrência entre subtipos de violência sexual
+# --------------------------------------
+st.markdown("---")
+st.subheader("Coocorrência entre subtipos de violência sexual")
+
+if len(df_filtrado) > 0:
+
+    # Nomes curtos para o heatmap (evitar rótulos longos)
+    NOMES_CURTOS = {
+        "Assédio sexual":                  "Assédio",
+        "Estupro":                         "Estupro",
+        "Pornografia infantil":            "Pornografia",
+        "Exploração sexual":               "Exploração",
+        "Outro tipo de violência sexual":  "Outro"
+    }
+
+    cols_sexual = list(NOMES_CURTOS.keys())
+
+    # Filtrar apenas registros com pelo menos um subtipo marcado
+    df_sexual = df_filtrado[df_filtrado[cols_sexual].any(axis=1)][cols_sexual].copy()
+
+    visualizacao_heat = st.radio(
+        "Visualização heatmap",
+        options=["Gráfico", "Tabela"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if visualizacao_heat == "Gráfico":
+        if len(df_sexual) == 0:
+            st.info("Nenhum registro com subtipo de violência sexual nos filtros selecionados.")
+        else:
+            # Calcular coocorrência relativa: % dos casos de A que também têm B
+            n = len(cols_sexual)
+            matriz = pd.DataFrame(index=cols_sexual, columns=cols_sexual, dtype=float)
+
+            for col_a in cols_sexual:
+                total_a = df_sexual[col_a].sum()
+                for col_b in cols_sexual:
+                    if total_a == 0:
+                        matriz.loc[col_a, col_b] = 0.0
+                    else:
+                        cooc = (df_sexual[col_a] & df_sexual[col_b]).sum()
+                        matriz.loc[col_a, col_b] = round(cooc / total_a * 100, 1)
+
+            # Renomear para nomes curtos
+            matriz.index = [NOMES_CURTOS[c] for c in cols_sexual]
+            matriz.columns = [NOMES_CURTOS[c] for c in cols_sexual]
+
+            # Texto de anotação dentro de cada célula
+            text_matrix = matriz.applymap(
+                lambda v: "100%" if v == 100 else f"{v:.1f}%"
+            )
+
+            fig_heat = px.imshow(
+                matriz.values,
+                x=list(matriz.columns),
+                y=list(matriz.index),
+                color_continuous_scale="Teal",
+                zmin=0,
+                zmax=100,
+                text_auto=False,
+                template="plotly_white",
+                labels={"color": "Coocorrência (%)"}
+            )
+
+            # Adicionar anotações manuais com % em cada célula
+            annotations = []
+            for i, row in enumerate(matriz.index):
+                for j, col in enumerate(matriz.columns):
+                    val = matriz.iloc[i, j]
+                    cor_texto = "white" if val > 55 else "black"
+                    annotations.append(dict(
+                        x=col, y=row,
+                        text=f"{val:.1f}%",
+                        showarrow=False,
+                        font=dict(size=13, color=cor_texto)
+                    ))
+
+            fig_heat.update_layout(
+                annotations=annotations,
+                xaxis=dict(side="bottom", title="Também tem →"),
+                yaxis=dict(title="Dado que tem →"),
+                coloraxis_colorbar=dict(
+                    tickformat=".0f",
+                    ticksuffix="%",
+                    title="Coocorr. (%)"
+                ),
+                margin=dict(t=40, b=80, l=100, r=40),
+                height=420
+            )
+
+            st.plotly_chart(fig_heat, use_container_width=True)
+
+            st.caption(
+                "Leitura: cada célula mostra o % dos casos da linha que também têm o tipo da coluna. "
+                "A diagonal sempre vale 100% (um tipo sempre coocorre consigo mesmo)."
+            )
+
+    else:
+        # Tabela da matriz de coocorrência
+        if len(df_sexual) == 0:
+            st.info("Nenhum registro com subtipo de violência sexual nos filtros selecionados.")
+        else:
+            matriz_tab = pd.DataFrame(index=cols_sexual, columns=cols_sexual, dtype=float)
+            for col_a in cols_sexual:
+                total_a = df_sexual[col_a].sum()
+                for col_b in cols_sexual:
+                    if total_a == 0:
+                        matriz_tab.loc[col_a, col_b] = 0.0
+                    else:
+                        cooc = (df_sexual[col_a] & df_sexual[col_b]).sum()
+                        matriz_tab.loc[col_a, col_b] = round(cooc / total_a * 100, 1)
+
+            matriz_tab.index = [NOMES_CURTOS[c] for c in cols_sexual]
+            matriz_tab.columns = [NOMES_CURTOS[c] for c in cols_sexual]
+            matriz_tab = matriz_tab.applymap(lambda v: f"{v:.1f}%")
+            matriz_tab.insert(0, "Dado que tem →", matriz_tab.index)
+
+            st.dataframe(matriz_tab, hide_index=True, use_container_width=True)
+            st.caption(
+                "Leitura: cada célula mostra o % dos casos da linha que também têm o tipo da coluna."
+            )
+
+else:
+    st.info("Nenhum dado disponível para os filtros selecionados.")
