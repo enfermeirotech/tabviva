@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 # --------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
@@ -225,3 +226,57 @@ if st.button("Limpar Todos os Filtros"):
     st.session_state.filtros_demograficos_aplicados = False
     st.session_state.filtros_localidade_aplicados = False
     st.rerun()
+
+# --------------------------------------
+# GRÁFICO 1: Série temporal por ano
+# --------------------------------------
+st.markdown("---")
+st.subheader("Notificações por ano")
+
+if len(df_filtrado) > 0:
+    # Agregar por ano
+    df_ano = (
+        df_filtrado
+        .groupby("Ano")
+        .size()
+        .reset_index(name="Notificações")
+    )
+
+    # Calcular variação percentual ano a ano
+    df_ano["Variação (%)"] = df_ano["Notificações"].pct_change() * 100
+
+    # Plotar
+    fig_linha = px.line(
+        df_ano,
+        x="Ano",
+        y="Notificações",
+        markers=True,
+        title="Notificações por ano",
+        labels={"Ano": "Ano", "Notificações": "Total de notificações"},
+        template="plotly_white"
+    )
+
+    fig_linha.update_traces(
+        line=dict(width=2.5, color="#1D9E75"),
+        marker=dict(size=8, color="#1D9E75"),
+        hovertemplate="<b>Ano: %{x}</b><br>Notificações: %{y:,.0f}<extra></extra>"
+    )
+
+    fig_linha.update_layout(
+        xaxis=dict(tickmode="linear", dtick=1),
+        yaxis=dict(tickformat=","),
+        hovermode="x unified",
+        margin=dict(t=50, b=40, l=60, r=20)
+    )
+
+    st.plotly_chart(fig_linha, use_container_width=True)
+
+    # Tabela de variação abaixo do gráfico
+    with st.expander("Ver variação ano a ano"):
+        df_ano["Variação (%)"] = df_ano["Variação (%)"].map(
+            lambda x: f"+{x:.1f}%" if x > 0 else f"{x:.1f}%" if pd.notna(x) else "—"
+        )
+        df_ano["Notificações"] = df_ano["Notificações"].map(lambda x: f"{x:,}")
+        st.dataframe(df_ano, hide_index=True, use_container_width=True)
+else:
+    st.info("Nenhum dado disponível para os filtros selecionados.")
