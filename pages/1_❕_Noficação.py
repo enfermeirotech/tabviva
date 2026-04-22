@@ -227,6 +227,74 @@ if st.button("Limpar Todos os Filtros"):
     st.session_state.filtros_localidade_aplicados = False
     st.rerun()
 
+# --------------------------------------
+# GRÁFICO: Ranking de tipos de violência
+# --------------------------------------
+st.markdown("---")
+st.subheader("Ranking de tipos de violência")
+
+if len(df_filtrado) > 0:
+    df_ranking = pd.DataFrame({
+        "Tipo": TIPOS_VIOLENCIA,
+        "Notificações": [int(df_filtrado[t].sum()) for t in TIPOS_VIOLENCIA]
+    })
+    total_notif = len(df_filtrado)
+    df_ranking["% do total"] = df_ranking["Notificações"] / total_notif * 100
+    df_ranking = df_ranking.sort_values("Notificações", ascending=True)
+
+    visualizacao_ranking = st.radio(
+        "Visualização ranking",
+        options=["Gráfico", "Tabela"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if visualizacao_ranking == "Gráfico":
+        fig_ranking = px.bar(
+            df_ranking,
+            x="Notificações",
+            y="Tipo",
+            orientation="h",
+            text="Notificações",
+            color="Notificações",
+            color_continuous_scale="Teal",
+            template="plotly_white",
+            labels={"Tipo": "", "Notificações": "Total de notificações"},
+            custom_data=["% do total"]
+        )
+        fig_ranking.update_traces(
+            texttemplate="%{x:,.0f}",
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Notificações: %{x:,.0f}<br>"
+                "Participação: %{customdata[0]:.1f}%<extra></extra>"
+            )
+        )
+        fig_ranking.update_layout(
+            xaxis=dict(tickformat=",", title="Total de notificações"),
+            coloraxis_showscale=False,
+            margin=dict(t=40, b=40, l=20, r=60),
+            height=460
+        )
+        st.plotly_chart(fig_ranking, use_container_width=True)
+
+        st.caption(
+            "Cada registro pode ter mais de um tipo marcado, por isso a soma dos "
+            "valores pode exceder o total de registros filtrados."
+        )
+
+    else:
+        df_ranking_tab = df_ranking.sort_values("Notificações", ascending=False).copy()
+        df_ranking_tab["% do total"] = df_ranking_tab["% do total"].map(lambda x: f"{x:.1f}%")
+        df_ranking_tab["Notificações"] = df_ranking_tab["Notificações"].map(lambda x: f"{x:,}")
+        st.dataframe(df_ranking_tab, hide_index=True, use_container_width=True)
+
+else:
+    st.info("Nenhum dado disponível para os filtros selecionados.")
+
+
 col1, col2 = st.columns(2)
 
 with col1:
