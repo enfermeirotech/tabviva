@@ -171,3 +171,57 @@ def regiao_to_parquet(csv_path: str, parquet_path: str) -> None:
     df_municipios = df_municipios[COLUNAS_MUNICIPIOS]
     
     df_municipios.to_parquet(parquet_path, index=False)
+
+
+def do_to_parquet(csv_path: str, regiao_parquet_path: str, parquet_path: str) -> None:
+    """
+    Parameters
+    ----------
+    csv_path : str
+        _description_
+    regiao_parquet_path : str
+        _description_
+    parquet_path : str
+        _description_
+    """
+
+    df = pd.read_csv(csv_path, encoding='latin-1', low_memory=False)
+    df_municipios = pd.read_parquet(regiao_parquet_path)
+
+    COLUNAS_DO = [
+        "TIPOBITO",
+        "DTOBITO",
+        "IDADE",
+        "SEXO",
+        "RACACOR",
+        "CODMUNRES",
+        "CODMUNOCOR",
+        "CAUSABAS",
+    ]
+
+    df = df[COLUNAS_DO]
+
+    # CODMUNRES — código do município de residência
+    # CODMUNOCOR — código do município de ocorrência
+
+    # --------------------------------------
+    # MERGE DOS DATAFRAMES
+    # --------------------------------------
+
+    # 1. Merge para município de RESIDÊNCIA
+    df = df.merge(
+        df_municipios.add_prefix("res_"),  # renomeia todas as colunas com prefixo "res_"
+        left_on="CODMUNRES",
+        right_on="res_mun_cod",
+        how="left",
+    ).drop(columns=["res_mun_cod"])
+
+    # 2. Merge para município de OCORRÊNCIA
+    df = df.merge(
+        df_municipios.add_prefix("ocor_"),  # renomeia todas as colunas com prefixo "ocor_"
+        left_on="CODMUNOCOR",
+        right_on="ocor_mun_cod",
+        how="left",
+    ).drop(columns=["ocor_mun_cod"])
+
+    df.to_parquet(parquet_path, index=False)
