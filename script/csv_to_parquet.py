@@ -79,6 +79,17 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
         "SEX_EXPLO": "Exploração sexual",
         "SEX_OUTRO": "Outro tipo de violência sexual",
     }
+
+    MAPA_COLUNAS = {
+        "DT_NOTIFIC": "Data de notificação",
+        "ID_MUNICIP": "Código do município",
+        "NU_IDADE_N": "Código de idade",
+        "CS_SEXO": "Sexo",
+        "CS_RACA": "Raça/Cor",
+        "ORIENT_SEX": "Orientação sexual",
+        "IDENT_GEN": "Identidade de gênero",
+        "FAIXA_ETARIA": "Faixa etária",
+    }
     
     COLUNAS_BOOLEANAS = [
         'Física', 'Psicológica', 'Tortura', 'Sexual',
@@ -139,7 +150,8 @@ def violbr_to_parquet(csv_path: str, parquet_path: str) -> None:
     # Renomear as colunas
     df_violbr = df_violbr.rename(columns=MAPA_VIOLENCIAS)
     df_violbr = df_violbr.rename(columns=MAPA_VIOLENCIA_SEXUAL)
-    
+    df_violbr = df_violbr.rename(columns=MAPA_COLUNAS)
+
     # Converter as colunas de violência para booleanas
     df_violbr[COLUNAS_BOOLEANAS] = df_violbr[COLUNAS_BOOLEANAS] == 1
     
@@ -199,7 +211,20 @@ def do_to_parquet(csv_path: str, regiao_parquet_path: str, parquet_path: str) ->
         "CAUSABAS",
     ]
 
+    MAPA_COLUNAS_DO = {
+        "TIPOBITO": "Tipo de óbito",
+        "DTOBITO": "Data do óbito",
+        "IDADE": "Idade",
+        "SEXO": "Sexo",
+        "RACACOR": "Raça/Cor",
+        "CODMUNRES": "Código do município de residência",
+        "CODMUNOCOR": "Código do município de ocorrência",
+        "CAUSABAS": "Causa básica",
+    }
+
     df = df[COLUNAS_DO]
+
+    df = df.rename(columns=MAPA_COLUNAS_DO)
 
     # CODMUNRES — código do município de residência
     # CODMUNOCOR — código do município de ocorrência
@@ -211,7 +236,7 @@ def do_to_parquet(csv_path: str, regiao_parquet_path: str, parquet_path: str) ->
     # 1. Merge para município de RESIDÊNCIA
     df = df.merge(
         df_municipios.add_prefix("res_"),  # renomeia todas as colunas com prefixo "res_"
-        left_on="CODMUNRES",
+        left_on="Código do município de residência",
         right_on="res_mun_cod",
         how="left",
     ).drop(columns=["res_mun_cod"])
@@ -219,7 +244,7 @@ def do_to_parquet(csv_path: str, regiao_parquet_path: str, parquet_path: str) ->
     # 2. Merge para município de OCORRÊNCIA
     df = df.merge(
         df_municipios.add_prefix("ocor_"),  # renomeia todas as colunas com prefixo "ocor_"
-        left_on="CODMUNOCOR",
+        left_on="Código do município de ocorrência",
         right_on="ocor_mun_cod",
         how="left",
     ).drop(columns=["ocor_mun_cod"])

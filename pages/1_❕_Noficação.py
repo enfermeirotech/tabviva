@@ -27,12 +27,12 @@ df_municipios = pd.read_parquet(CAMINHO_MUNICIPIOS)
 # --------------------------------------
 df = df_violbr.merge(
     df_municipios,
-    left_on="ID_MUNICIP",
+    left_on="Código do município",
     right_on="mun_cod",
     how="left"
 )
 
-df = df.drop(columns=["ID_MUNICIP", "mun_cod"])
+df = df.drop(columns=["Código do município", "mun_cod"])
 
 # --------------------------------------
 # OPÇÕES DE FILTRO
@@ -180,11 +180,11 @@ if submitted_sidebar or st.session_state.get('filtros_demograficos_aplicados', F
         (df_filtrado["Ano"] >= filtro_tempo[0]) & 
         (df_filtrado["Ano"] <= filtro_tempo[1])
     ]
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_sexo, "CS_SEXO")
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_orientacao, "ORIENT_SEX")
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_identidade, "IDENT_GEN")
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_raca, "CS_RACA")
-    df_filtrado = aplicar_filtros(df_filtrado, filtro_faixa, "FAIXA_ETARIA")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_sexo, "Sexo")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_orientacao, "Orientação sexual")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_identidade, "Identidade de gênero")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_raca, "Raça/Cor")
+    df_filtrado = aplicar_filtros(df_filtrado, filtro_faixa, "Faixa etária")
 
     # Filtros booleanos de violência
     df_filtrado = aplicar_filtro_booleano(df_filtrado, filtro_tipo_violencia)
@@ -278,7 +278,7 @@ if len(df_filtrado) > 0:
             margin=dict(t=40, b=40, l=20, r=60),
             height=460
         )
-        st.plotly_chart(fig_ranking, use_container_width=True)
+        st.plotly_chart(fig_ranking, width='stretch')
 
         st.caption(
             "Cada registro pode ter mais de um tipo marcado, por isso a soma dos "
@@ -289,7 +289,7 @@ if len(df_filtrado) > 0:
         df_ranking_tab = df_ranking.sort_values("Notificações", ascending=False).copy()
         df_ranking_tab["% do total"] = df_ranking_tab["% do total"].map(lambda x: f"{x:.1f}%")
         df_ranking_tab["Notificações"] = df_ranking_tab["Notificações"].map(lambda x: f"{x:,}")
-        st.dataframe(df_ranking_tab, hide_index=True, use_container_width=True)
+        st.dataframe(df_ranking_tab, hide_index=True, width='stretch')
 
 else:
     st.info("Nenhum dado disponível para os filtros selecionados.")
@@ -341,7 +341,7 @@ with col1:
                 hovermode="x unified",
                 margin=dict(t=50, b=40, l=60, r=20)
             )
-            st.plotly_chart(fig_linha, use_container_width=True)
+            st.plotly_chart(fig_linha, width='stretch')
 
         else:
             df_tabela = df_ano.copy()
@@ -349,7 +349,7 @@ with col1:
                 lambda x: f"+{x:.1f}%" if x > 0 else f"{x:.1f}%" if pd.notna(x) else "—"
             )
             df_tabela["Notificações"] = df_tabela["Notificações"].map(lambda x: f"{x:,}")
-            st.dataframe(df_tabela, hide_index=True, use_container_width=True)
+            st.dataframe(df_tabela, hide_index=True, width='stretch')
 
     else:
         st.info("Nenhum dado disponível para os filtros selecionados.")
@@ -365,22 +365,22 @@ with col2:
 
         # Filtrar apenas Feminino e Masculino
         df_piramide = (
-            df_filtrado[df_filtrado["CS_SEXO"].isin(["Feminino", "Masculino"])]
-            .groupby(["FAIXA_ETARIA", "CS_SEXO"])
+            df_filtrado[df_filtrado["Sexo"].isin(["Feminino", "Masculino"])]
+            .groupby(["Faixa etária", "Sexo"])
             .size()
             .reset_index(name="Contagem")
         )
 
         # Garantir ordem correta das faixas
-        df_piramide["FAIXA_ETARIA"] = pd.Categorical(
-            df_piramide["FAIXA_ETARIA"],
+        df_piramide["Faixa etária"] = pd.Categorical(
+            df_piramide["Faixa etária"],
             categories=FAIXA,
             ordered=True
         )
-        df_piramide = df_piramide.sort_values("FAIXA_ETARIA")
+        df_piramide = df_piramide.sort_values("Faixa etária")
 
         # Masculino vai para o lado negativo (esquerda)
-        df_piramide.loc[df_piramide["CS_SEXO"] == "Masculino", "Contagem"] *= -1
+        df_piramide.loc[df_piramide["Sexo"] == "Masculino", "Contagem"] *= -1
 
         visualizacao_piramide = st.radio(
             "Visualização pirâmide",
@@ -393,15 +393,15 @@ with col2:
             fig_piramide = px.bar(
                 df_piramide,
                 x="Contagem",
-                y="FAIXA_ETARIA",
-                color="CS_SEXO",
+                y="Faixa etária",
+                color="Sexo",
                 orientation="h",
                 color_discrete_map={
                     "Feminino": "#D4537E",
                     "Masculino": "#378ADD"
                 },
                 template="plotly_white",
-                labels={"FAIXA_ETARIA": "", "Contagem": "Notificações", "CS_SEXO": "Sexo"}
+                labels={"Faixa etária": "", "Contagem": "Notificações", "Sexo": "Sexo"}
             )
 
             # Formatar eixo X para mostrar valores absolutos no hover e no eixo
@@ -424,7 +424,7 @@ with col2:
             # Hover mostra valor absoluto
             fig_piramide.update_traces(
                 hovertemplate="%{customdata[0]}: %{x:,.0f}<extra></extra>",
-                customdata=df_piramide[["CS_SEXO"]].values
+                customdata=df_piramide[["Sexo"]].values
             )
             fig_piramide.for_each_trace(
                 lambda t: t.update(
@@ -437,16 +437,16 @@ with col2:
             # Corrigir hover do Masculino (valores negativos → mostrar positivo)
             for trace in fig_piramide.data:
                 if trace.name == "Masculino":
-                    trace.customdata = abs(df_piramide[df_piramide["CS_SEXO"] == "Masculino"]["Contagem"].values).reshape(-1, 1)
+                    trace.customdata = abs(df_piramide[df_piramide["Sexo"] == "Masculino"]["Contagem"].values).reshape(-1, 1)
                     trace.hovertemplate = "Masculino: %{customdata[0]:,.0f}<extra></extra>"
 
-            st.plotly_chart(fig_piramide, use_container_width=True)
+            st.plotly_chart(fig_piramide, width='stretch')
 
         else:
             # Tabela com valores absolutos lado a lado
             df_tab_piramide = (
-                df_filtrado[df_filtrado["CS_SEXO"].isin(["Feminino", "Masculino"])]
-                .groupby(["FAIXA_ETARIA", "CS_SEXO"])
+                df_filtrado[df_filtrado["Sexo"].isin(["Feminino", "Masculino"])]
+                .groupby(["Faixa etária", "Sexo"])
                 .size()
                 .unstack(fill_value=0)
                 .reindex(FAIXA)
@@ -461,8 +461,8 @@ with col2:
             if "Masculino" in df_tab_piramide.columns:
                 df_tab_piramide["% Masculino"] = (df_tab_piramide["Masculino"] / df_tab_piramide["Total"] * 100).map(lambda x: f"{x:.1f}%")
 
-            df_tab_piramide = df_tab_piramide.rename(columns={"FAIXA_ETARIA": "Faixa Etária"})
-            st.dataframe(df_tab_piramide, hide_index=True, use_container_width=True)
+            df_tab_piramide = df_tab_piramide.rename(columns={"Faixa etária": "Faixa Etária"})
+            st.dataframe(df_tab_piramide, hide_index=True, width='stretch')
 
     else:
         st.info("Nenhum dado disponível para os filtros selecionados.")
@@ -519,7 +519,7 @@ if len(df_filtrado) > 0:
             matriz.columns = [NOMES_CURTOS[c] for c in cols_sexual]
 
             # Texto de anotação dentro de cada célula
-            text_matrix = matriz.applymap(
+            text_matrix = matriz.map(
                 lambda v: "100%" if v == 100 else f"{v:.1f}%"
             )
 
@@ -561,7 +561,7 @@ if len(df_filtrado) > 0:
                 height=420
             )
 
-            st.plotly_chart(fig_heat, use_container_width=True)
+            st.plotly_chart(fig_heat, width='stretch')
 
             st.caption(
                 "Leitura: cada célula mostra o % dos casos da linha que também têm o tipo da coluna. "
@@ -585,10 +585,10 @@ if len(df_filtrado) > 0:
 
             matriz_tab.index = [NOMES_CURTOS[c] for c in cols_sexual]
             matriz_tab.columns = [NOMES_CURTOS[c] for c in cols_sexual]
-            matriz_tab = matriz_tab.applymap(lambda v: f"{v:.1f}%")
+            matriz_tab = matriz_tab.map(lambda v: f"{v:.1f}%")
             matriz_tab.insert(0, "Dado que tem →", matriz_tab.index)
 
-            st.dataframe(matriz_tab, hide_index=True, use_container_width=True)
+            st.dataframe(matriz_tab, hide_index=True, width='stretch')
             st.caption(
                 "Leitura: cada célula mostra o % dos casos da linha que também têm o tipo da coluna."
             )
