@@ -172,8 +172,9 @@ def regiao_to_parquet(csv_path: str, parquet_path: str) -> None:
     df_municipios = pd.read_csv(csv_path, sep=';', encoding='latin-1')
     
     COLUNAS_MUNICIPIOS = [
-    "mun_cod", "mun_nome", 
-    "uf_sigla", "uf_nome", 
+    "mun_cod", "mun_nome",
+    "mun_lat", "mun_lon",
+    "uf_sigla", "uf_nome",
     "macro_reg_saude_abrv", "macro_reg_saude_nome",
     "reg_saude_nome", "reg_integracao_nome",
     # "dsei", "dsei_nome",
@@ -181,7 +182,16 @@ def regiao_to_parquet(csv_path: str, parquet_path: str) -> None:
     ]
     
     df_municipios = df_municipios[COLUNAS_MUNICIPIOS]
-    
+
+    # Coordenadas vêm com vírgula decimal (ex.: "-1,72347") -> converter para float
+    for coluna in ("mun_lat", "mun_lon"):
+        df_municipios[coluna] = (
+            df_municipios[coluna]
+            .astype(str)
+            .str.replace(",", ".", regex=False)
+        )
+        df_municipios[coluna] = pd.to_numeric(df_municipios[coluna], errors="coerce")
+
     df_municipios.to_parquet(parquet_path, index=False)
 
 
