@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -18,6 +20,8 @@ st.markdown("---")
 # --------------------------------------
 CAMINHO_VIOLBR = r"dados/VIOLBR.parquet"
 CAMINHO_MUNICIPIOS = r"dimensoes/dim_regiao.parquet"
+CAMINHO_GEOJSON = r"dimensoes/geo_pa_municipios.json"
+CAMINHO_POPULACAO = r"populacao/pop_svs.csv"
 
 df_violbr = pd.read_parquet(CAMINHO_VIOLBR)
 df_municipios = pd.read_parquet(CAMINHO_MUNICIPIOS)
@@ -32,7 +36,8 @@ df = df_violbr.merge(
     how="left"
 )
 
-df = df.drop(columns=["Código do município", "mun_cod"])
+# mun_cod é mantido: é a chave de junção com a malha municipal do IBGE no mapa
+df = df.drop(columns=["Código do município"])
 
 # --------------------------------------
 # OPÇÕES DE FILTRO
@@ -77,6 +82,54 @@ def aplicar_filtro_booleano(df, filtro_cols):
         mask = df[filtro_cols].any(axis=1)
         return df[mask]
     return df
+
+# --------------------------------------
+# BASES DE APOIO DO MAPA (carregadas sob demanda)
+# --------------------------------------
+# Faixas etárias em anos completos, para casar a população (que vem em idade
+# simples) com a coluna "Faixa etária" das notificações.
+FAIXAS_POPULACAO = [
+    "00 a < 01 ano", "01 a 04 anos", "05 a 09 anos", "10 a 14 anos",
+    "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos",
+    "50 a 59 anos", "60 a 69 anos", "70 a 79 anos", "Mais de 80 anos"
+]
+
+LIMITES_IDADE = [-1, 0, 4, 9, 14, 19, 29, 39, 49, 59, 69, 79, 10**6]
+
+# Enquadramento do mapa: centro da malha do Pará (lat -9,84 a 2,59 / lon -58,90 a
+# -46,06). No zoom 4.7 a altura de 620px cobre ~16,7° de latitude, com folga sobre
+# os 12,4° do estado.
+CENTRO_PARA = {"lat": -3.63, "lon": -52.48}
+ZOOM_PARA = 4.7
+
+
+@st.cache_data(show_spinner="Carregando malha municipal...")
+def carregar_geojson(caminho):
+    """Malha municipal do Pará (IBGE). O campo 'id' é o código de 6 dígitos."""
+    with open(caminho, encoding="utf-8") as arquivo:
+        return json.load(arquivo)
+
+
+@st.cache_data(show_spinner="Carregando base populacional...")
+def carregar_populacao(caminho):
+    """População por município/ano/sexo/faixa etária, para o cálculo de taxas."""
+    pop = pd.read_csv(
+        caminho,
+        usecols=["mun_cod", "ano", "sexo_sigla", "idade", "qtd_pop"]
+    )
+    pop["Faixa etária"] = pd.cut(
+        pop["idade"],
+        bins=LIMITES_IDADE,
+        labels=FAIXAS_POPULACAO,
+        ordered=False
+    )
+    pop["Sexo"] = pop["sexo_sigla"].map({"F": "Feminino", "M": "Masculino"})
+
+    return (
+        pop.groupby(["mun_cod", "ano", "Sexo", "Faixa etária"], observed=True)["qtd_pop"]
+        .sum()
+        .reset_index()
+    )
 
 # --------------------------------------
 # SIDEBAR - FILTROS DEMOGRÁFICOS
@@ -226,6 +279,228 @@ if st.button("Limpar Todos os Filtros"):
     st.session_state.filtros_demograficos_aplicados = False
     st.session_state.filtros_localidade_aplicados = False
     st.rerun()
+
+# --------------------------------------
+# MAPA: distribuição geográfica das notificações
+# --------------------------------------
+st.markdown("---")
+st.subheader("Distribuição geográfica das notificações")
+
+if len(df_filtrado) > 0:
+
+    col_metrica, col_visual = st.columns(2)
+
+    with col_metrica:
+        metrica_mapa = st.radio(
+            "Métrica do mapa",
+            options=["Nº de notificações", "Taxa por 100 mil hab."],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+
+    with col_visual:
+        visualizacao_mapa = st.radio(
+            "Visualização mapa",
+            options=["Coroplético", "Bolhas", "Tabela"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+
+    # Códigos negativos são sentinelas da dimensão (Não se aplica / Em branco /
+    # Não encontrado) e não possuem geometria.
+    df_geo = df_filtrado[df_filtrado["mun_cod"] > 0]
+
+    if len(df_geo) == 0:
+        st.info("Nenhum registro com município do Pará identificado nos filtros selecionados.")
+
+    else:
+        df_mapa = (
+            df_geo.groupby(
+                ["mun_cod", "mun_nome", "mun_lat", "mun_lon",
+                 "macro_reg_saude_nome", "reg_integracao_nome"],
+                observed=True
+            )
+            .size()
+            .reset_index(name="Nº de notificações")
+        )
+
+        anos_sem_populacao = []
+        colunas_hover = ["macro_reg_saude_nome", "reg_integracao_nome"]
+
+        if metrica_mapa == "Taxa por 100 mil hab.":
+            populacao = carregar_populacao(CAMINHO_POPULACAO)
+
+            # O denominador acompanha os filtros de ano, sexo e faixa etária
+            anos_notificacao = set(df_geo["Ano"].unique())
+            anos_validos = sorted(anos_notificacao & set(populacao["ano"].unique()))
+            anos_sem_populacao = sorted(anos_notificacao - set(anos_validos))
+
+            sexos_validos = [
+                s for s in df_geo["Sexo"].unique() if s in ("Feminino", "Masculino")
+            ] or ["Feminino", "Masculino"]
+
+            faixas_validas = [
+                f for f in df_geo["Faixa etária"].unique() if f in FAIXAS_POPULACAO
+            ] or FAIXAS_POPULACAO
+
+            denominador = (
+                populacao[
+                    populacao["ano"].isin(anos_validos)
+                    & populacao["Sexo"].isin(sexos_validos)
+                    & populacao["Faixa etária"].isin(faixas_validas)
+                ]
+                .groupby("mun_cod")["qtd_pop"]
+                .sum()
+                .reset_index(name="Pessoas-ano")
+            )
+
+            # Numerador restrito aos mesmos anos cobertos pelo denominador
+            numerador = (
+                df_geo[df_geo["Ano"].isin(anos_validos)]
+                .groupby("mun_cod")
+                .size()
+                .reset_index(name="Notificações no período")
+            )
+
+            df_mapa = df_mapa.merge(numerador, on="mun_cod", how="left")
+            df_mapa = df_mapa.merge(denominador, on="mun_cod", how="left")
+            df_mapa["Notificações no período"] = df_mapa["Notificações no período"].fillna(0)
+
+            df_mapa = df_mapa[df_mapa["Pessoas-ano"].notna() & (df_mapa["Pessoas-ano"] > 0)]
+            df_mapa["Taxa por 100 mil hab."] = (
+                df_mapa["Notificações no período"] / df_mapa["Pessoas-ano"] * 100000
+            )
+
+            colunas_hover += ["Notificações no período", "Pessoas-ano"]
+
+        coluna_valor = metrica_mapa
+        formato_valor = ",.0f" if coluna_valor == "Nº de notificações" else ",.1f"
+
+        if len(df_mapa) == 0:
+            st.info("Não há população de referência para o recorte selecionado.")
+
+        elif visualizacao_mapa in ("Coroplético", "Bolhas"):
+
+            hover_extra = (
+                "<br>Notificações: %{customdata[2]:,.0f}"
+                "<br>População (pessoas-ano): %{customdata[3]:,.0f}"
+                if coluna_valor == "Taxa por 100 mil hab." else ""
+            )
+
+            hovertemplate = (
+                "<b>%{hovertext}</b>"
+                "<br>Macro de saúde: %{customdata[0]}"
+                "<br>Região de integração: %{customdata[1]}"
+                + hover_extra
+                + "<extra></extra>"
+            )
+
+            if visualizacao_mapa == "Coroplético":
+                geojson_pa = carregar_geojson(CAMINHO_GEOJSON)
+
+                fig_mapa = px.choropleth_map(
+                    df_mapa,
+                    geojson=geojson_pa,
+                    locations=df_mapa["mun_cod"].astype(str),
+                    featureidkey="id",
+                    color=coluna_valor,
+                    hover_name="mun_nome",
+                    custom_data=colunas_hover,
+                    color_continuous_scale="Teal",
+                    map_style="carto-positron",
+                    center=CENTRO_PARA,
+                    zoom=ZOOM_PARA,
+                    opacity=0.85
+                )
+                fig_mapa.update_traces(
+                    marker_line_width=0.4,
+                    marker_line_color="white",
+                    hovertemplate=(
+                        f"<b>%{{hovertext}}</b><br>{coluna_valor}: %{{z:{formato_valor}}}"
+                        + hovertemplate.split("</b>", 1)[1]
+                    )
+                )
+
+            else:
+                fig_mapa = px.scatter_map(
+                    df_mapa,
+                    lat="mun_lat",
+                    lon="mun_lon",
+                    size=coluna_valor,
+                    color=coluna_valor,
+                    hover_name="mun_nome",
+                    custom_data=colunas_hover,
+                    color_continuous_scale="Teal",
+                    map_style="carto-positron",
+                    center=CENTRO_PARA,
+                    zoom=ZOOM_PARA,
+                    size_max=38
+                )
+                fig_mapa.update_traces(
+                    hovertemplate=(
+                        f"<b>%{{hovertext}}</b><br>{coluna_valor}: "
+                        f"%{{marker.color:{formato_valor}}}"
+                        + hovertemplate.split("</b>", 1)[1]
+                    )
+                )
+
+            fig_mapa.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=620,
+                coloraxis_colorbar=dict(
+                    title=coluna_valor.replace(" por ", "<br>por "),
+                    tickformat=","
+                )
+            )
+            st.plotly_chart(fig_mapa, width='stretch')
+
+            if coluna_valor == "Taxa por 100 mil hab.":
+                legenda = (
+                    "Taxa calculada sobre pessoas-ano (população SVS somada nos anos do "
+                    "recorte). O denominador acompanha os filtros de ano, sexo e faixa "
+                    "etária, mas **não** os de raça/cor, orientação sexual e identidade "
+                    "de gênero, que não existem na base populacional."
+                )
+                if anos_sem_populacao:
+                    legenda += (
+                        "  \nAnos sem população de referência, excluídos do cálculo: "
+                        + ", ".join(str(a) for a in anos_sem_populacao) + "."
+                    )
+            else:
+                legenda = (
+                    "Contagem absoluta por município de residência. Municípios populosos "
+                    "concentram volume por tamanho — use a taxa por 100 mil habitantes "
+                    "para comparar municípios entre si."
+                )
+
+            registros_fora = len(df_filtrado) - len(df_geo)
+            if registros_fora > 0:
+                legenda += (
+                    f"  \n{registros_fora:,} registro(s) sem município do Pará "
+                    "identificado ficaram fora do mapa."
+                )
+
+            st.caption(legenda)
+
+        else:
+            df_mapa_tab = (
+                df_mapa[["mun_nome", "macro_reg_saude_nome",
+                         "reg_integracao_nome", coluna_valor]]
+                .sort_values(coluna_valor, ascending=False)
+                .rename(columns={
+                    "mun_nome": "Município",
+                    "macro_reg_saude_nome": "Macro Região de Saúde",
+                    "reg_integracao_nome": "Região de Integração"
+                })
+            )
+            casas = 0 if coluna_valor == "Nº de notificações" else 1
+            df_mapa_tab[coluna_valor] = df_mapa_tab[coluna_valor].map(
+                lambda x: f"{x:,.{casas}f}"
+            )
+            st.dataframe(df_mapa_tab, hide_index=True, width='stretch')
+
+else:
+    st.info("Nenhum dado disponível para os filtros selecionados.")
 
 # --------------------------------------
 # GRÁFICO: Ranking de tipos de violência
